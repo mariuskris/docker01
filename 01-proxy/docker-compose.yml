@@ -1,0 +1,43 @@
+networks:
+  proxy_net:
+    external: true
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.desec.acme.dnschallenge=true"
+      - "--certificatesresolvers.desec.acme.dnschallenge.provider=desec"
+      - "--certificatesresolvers.desec.acme.email=admin@ktown.gg"
+      - "--certificatesresolvers.desec.acme.storage=/letsencrypt/acme.json"
+      - "--ping=true"
+    environment:
+      - DESEC_TOKEN=AmJv5iu1CAn5GmadEYP6XkM1CD1e
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /opt/docker01/01-proxy/letsencrypt:/letsencrypt
+    networks:
+      - proxy_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.ktown.gg`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=desec"

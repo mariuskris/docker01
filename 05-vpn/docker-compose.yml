@@ -1,0 +1,65 @@
+networks:
+  proxy_net:
+    external: true
+
+services:
+  netbird-dashboard:
+    image: netbirdio/dashboard:latest
+    container_name: netbird-dashboard
+    restart: unless-stopped
+    environment:
+      - NETBIRD_MGMT_API_ENDPOINT=https://netbird.ktown.gg
+      - NETBIRD_MGMT_GRPC_API_ENDPOINT=https://netbird.ktown.gg
+      - AUTH_AUTHORITY=https://auth.ktown.gg/application/o/netbird/
+      - AUTH_CLIENT_ID=netbird
+      - AUTH_SUPPORTED_SCOPES=openid profile email
+    networks:
+      - proxy_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nb-dashboard.rule=Host(`netbird.ktown.gg`)"
+      - "traefik.http.routers.nb-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.nb-dashboard.tls.certresolver=desec"
+      - "traefik.http.services.nb-dashboard.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  netbird-management:
+    image: netbirdio/management:latest
+    container_name: netbird-management
+    restart: unless-stopped
+    environment:
+      - NETBIRD_STORE_ENGINE_POSTGRES_DSN=postgres://admin:securepassword@global-postgres:5432/netbird
+    volumes:
+      - netbird-mgmt:/var/lib/netbird
+    networks:
+      - proxy_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nb-mgmt.rule=Host(`netbird.ktown.gg`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.nb-mgmt.entrypoints=websecure"
+      - "traefik.http.routers.nb-mgmt.tls.certresolver=desec"
+      - "traefik.http.services.nb-mgmt.loadbalancer.server.port=33073"
+
+  netbird-signal:
+    image: netbirdio/signal:latest
+    container_name: netbird-signal
+    restart: unless-stopped
+    volumes:
+      - netbird-signal:/var/lib/netbird
+    networks:
+      - proxy_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nb-signal.rule=Host(`netbird.ktown.gg`) && PathPrefix(`/signalexchange.SignalExchange/`)"
+      - "traefik.http.routers.nb-signal.entrypoints=websecure"
+      - "traefik.http.routers.nb-signal.tls.certresolver=desec"
+      - "traefik.http.services.nb-signal.loadbalancer.server.port=10000"
+      - "traefik.http.services.nb-signal.loadbalancer.server.scheme=h2c"
+
+volumes:
+  netbird-mgmt:
+  netbird-signal:

@@ -1,0 +1,40 @@
+networks:
+  proxy_net:
+    external: true
+  db_net:
+    external: true
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: global-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: securepassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /opt/docker01/02-database/init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql
+    networks:
+      - db_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: docker.io/library/redis:alpine
+    container_name: global-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 10s
+      retries: 5
+      timeout: 3s
+    networks:
+      - db_net
+
+volumes:
+  postgres_data:
